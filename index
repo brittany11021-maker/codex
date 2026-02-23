@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Body Double / Study Companion</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #6366f1;
+      --secondary: #e5e7eb;
+      --bubble-user: #dbeafe;
+      --bubble-ai: #ecfeff;
+      --bubble-log: #f3f4f6;
+    }
+    body.dark {
+      --bg: #111827;
+      --card: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --primary: #818cf8;
+      --secondary: #374151;
+      --bubble-user: #1e3a8a;
+      --bubble-ai: #134e4a;
+      --bubble-log: #374151;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: background .2s, color .2s;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .card { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 3px 14px rgba(0,0,0,.08); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    input, textarea, button, select {
+      border-radius: 10px;
+      border: 1px solid var(--secondary);
+      background: transparent;
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    button { cursor: pointer; background: var(--secondary); }
+    button.primary { background: var(--primary); color: #fff; border: none; }
+    .clock { font-size: 18px; font-weight: 700; }
+    .subclock { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    details summary { cursor: pointer; font-weight: 600; }
+    textarea { width: 100%; min-height: 100px; resize: vertical; }
+    .setting-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap:10px; }
+    .log-box { max-height: 420px; overflow: auto; padding: 8px; background: rgba(127,127,127,.06); border-radius: 12px; }
+    .msg { display:flex; gap:8px; margin:10px 0; }
+    .msg .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--secondary); }
+    .msg .bubble { padding: 8px 10px; border-radius: 10px; max-width: 82%; }
+    .msg.user .bubble { background: var(--bubble-user); }
+    .msg.ai .bubble { background: var(--bubble-ai); }
+    .msg.log .bubble { background: var(--bubble-log); }
+    .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .task-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; }
+    .tag { font-size: 12px; color: var(--muted); }
+    .hidden { display: none !important; }
+
+    #emojiRain { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 99; }
+    .emoji { position: absolute; top: -30px; font-size: 24px; animation: drop 2.7s linear forwards; }
+    @keyframes drop { to { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
+
+    #gentleModal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:120;
+    }
+    #gentleModal .content { background: var(--card); padding: 16px; border-radius: 12px; max-width: 420px; width: calc(100% - 24px); }
+
+    /* 模块一：Draggable AI Avatar */
+    #aiFloatAvatar {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 120px;
+      height: 120px;
+      z-index: 110;
+      cursor: move;
+      border-radius: 16px;
+      overflow: hidden;
+      resize: both;
+      border: 2px solid rgba(255,255,255,.5);
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      background: var(--card);
+      min-width: 80px;
+      min-height: 80px;
+      max-width: 260px;
+      max-height: 260px;
+      user-select: none;
+    }
+    #aiFloatAvatar img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+
+    /* 模块二：Vinyl Record Music Player */
+    .vinyl-wrap { display:flex; align-items:center; gap: 14px; }
+    #vinylRecord {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      position: relative;
+      background:
+        repeating-radial-gradient(circle at center, #0b0b0b 0 3px, #171717 3px 6px, #0c0c0c 6px 9px);
+      box-shadow: inset 0 0 0 2px #111, 0 8px 18px rgba(0,0,0,.25);
+      cursor: pointer;
+    }
+    #vinylCover {
+      position:absolute;
+      left:50%; top:50%; transform:translate(-50%,-50%);
+      width:54px; height:54px; border-radius:50%;
+      background: #e5e7eb center/cover no-repeat;
+      display:flex; align-items:center; justify-content:center;
+      font-size:10px; color:#111; text-align:center; padding:6px;
+      overflow:hidden;
+    }
+    #vinylRecord.playing { animation: spin 4s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    #musicEmbedBox { width: min(100%, 360px); display:none; }
+    #musicEmbedBox iframe { width: 100%; height: 120px; border: none; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card row" style="justify-content:space-between;">
+      <div>
+        <div class="clock" id="clock"></div>
+        <div class="subclock" id="dateLine"></div>
+      </div>
+      <div class="row">
+        <label>用户名 <input id="userName" placeholder="你" style="width:100px"></label>
+        <label>AI 名 <input id="aiName" placeholder="Companion" style="width:120px"></label>
+        <label>用户头像URL <input id="userAvatar" placeholder="https://..." style="width:140px"></label>
+        <label>AI头像URL <input id="aiAvatar" placeholder="https://..." style="width:140px"></label>
+        <button id="themeToggle">切换白天/黑夜</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>设置区域（OpenRouter）</summary>
+        <div style="margin-top:10px" class="setting-grid">
+          <label>OpenRouter API Key
+            <input id="apiKey" type="password" placeholder="sk-or-..." />
+          </label>
+          <label>Model ID
+            <input id="modelId" type="text" placeholder="qwen/qwen-turbo" />
+          </label>
+        </div>
+        <label style="display:block;margin-top:10px;">Custom System Prompt
+          <textarea id="systemPrompt" placeholder="你是一个温柔、非评判性的学习伙伴..."></textarea>
+        </label>
+      </details>
+    </div>
+
+    <div class="card">
+      <h3>Action Log & Chat</h3>
+      <div id="logBox" class="log-box"></div>
+      <details style="margin-top:8px;">
+        <summary>过去记录（按05:00分日，最多7天）</summary>
+        <div id="historyBox"></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h3>任务管理（最多6个）</h3>
+      <div class="row">
+        <input id="newTask" placeholder="输入任务名称" style="flex:1;min-width:220px;" />
+        <button id="addTask">添加任务</button>
+        <select id="taskFilter">
+          <option value="all">全部</option>
+          <option value="done">已完成</option>
+          <option value="doing">进行中</option>
+          <option value="todo">未完成</option>
+        </select>
+      </div>
+      <div id="taskList" style="margin-top:8px;"></div>
+      <div class="tag" id="taskSummary"></div>
+    </div>
+
+    <div class="card">
+      <h3>极简陪伴控制器</h3>
+      <div class="row">
+        <button id="toggleStudyRest" class="primary">切换到学习</button>
+        <button id="endState">结束当前状态</button>
+        <span class="tag" id="stateLabel">当前：空闲</span>
+      </div>
+      <div style="margin-top:8px;" class="row">
+        <button class="quick">早上好</button>
+        <button class="quick">下午好</button>
+        <button class="quick">晚上好</button>
+        <button class="quick">今天结束了</button>
+      </div>
+      <div style="margin-top:8px;" class="row">
+        <button class="distract" data-level="轻微走神">轻微走神</button>
+        <button class="distract" data-level="尚能控制">尚能控制</button>
+        <button class="distract" data-level="完全偏离">完全偏离</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>音乐挂件</h3>
+      <div class="vinyl-wrap">
+        <div id="vinylRecord" title="左键播放/暂停，右键设置服务商与封面">
+          <div id="vinylCover">Spotify</div>
+        </div>
+        <div id="musicEmbedBox"><iframe id="musicEmbed" allow="autoplay; clipboard-write; encrypted-media"></iframe></div>
+      </div>
+      <div style="margin-top:10px;" class="tag">预留 Spotify iframe 嵌入区（由黑胶控制显示）</div>
+    </div>
+  </div>
+
+  <div id="emojiRain"></div>
+  <div id="gentleModal"><div class="content"><div id="modalText"></div><button style="margin-top:10px;" onclick="document.getElementById('gentleModal').style.display='none'">好的</button></div></div>
+
+  <div id="aiFloatAvatar" title="左键互动，右键更换图片，拖动可移动"><img id="aiFloatAvatarImg" src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNjJxYWUxMnd2ZXkydXQ3eGhlZW0wa2RsNmhtYzN5d2d6NWQ4anBpcCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3oriO0OEd9QIDdllqo/giphy.gif" alt="AI Avatar"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const LS = {
+      apiKey: 'bd_apiKey', modelId: 'bd_modelId', systemPrompt: 'bd_systemPrompt', logs: 'bd_logs',
+      tasks: 'bd_tasks', taskHistory: 'bd_taskHistory', prefs: 'bd_prefs', mode: 'bd_mode', state: 'bd_state',
+      avatarFloat: 'bd_avatarFloat', vinyl: 'bd_vinyl'
+    };
+    const defaultPrefs = {
+      userName: '你', aiName: 'Companion',
+      userAvatar: '', aiAvatar: '', theme: 'light'
+    };
+
+    function nowTs() {
+      const d = new Date();
+      const p = n => String(n).padStart(2, '0');
+      return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    }
+    function dayKey(date = new Date()) {
+      const d = new Date(date.getTime() - 5 * 3600 * 1000);
+      return d.toISOString().slice(0,10);
+    }
+    function prune7Days(obj) {
+      const keys = Object.keys(obj).sort();
+      while (keys.length > 7) { delete obj[keys.shift()]; }
+      return obj;
+    }
+    function save(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+    function load(k, fallback){ try { const v = JSON.parse(localStorage.getItem(k)); return v ?? fallback; } catch { return fallback; } }
+
+    function updateClock() {
+      const d = new Date(), p = n => String(n).padStart(2,'0');
+      const week = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+      $('clock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}`;
+      $('dateLine').textContent = `${String(d.getFullYear()).slice(2)}/${p(d.getMonth()+1)}/${p(d.getDate)} ${week}`;
+    }
+
+    const prefs = load(LS.prefs, defaultPrefs);
+    const logs = load(LS.logs, {});
+    let tasks = load(LS.tasks, []);
+    let taskHistory = load(LS.taskHistory, {});
+    let state = load(LS.state, { mode: 'idle', startAt: null, reminded: false });
+
+    function appendLog(type, text, saveIt = true) {
+      const key = dayKey();
+      if (!logs[key]) logs[key] = [];
+      const entry = { type, text, ts: nowTs(), at: Date.now() };
+      logs[key].push(entry);
+      prune7Days(logs);
+      if (saveIt) save(LS.logs, logs);
+      renderLogs();
+      renderHistory();
+    }
+
+    function avatarOf(type) {
+      if (type === 'user') return prefs.userAvatar || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="20" fill="%2373a5ff"/></svg>';
+      if (type === 'ai') return prefs.aiAvatar || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="20" fill="%238be9c7"/></svg>';
+      return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="20" fill="%23c4c4c4"/></svg>';
+    }
+
+    function renderLogs() {
+      const key = dayKey();
+      const arr = logs[key] || [];
+      $('logBox').innerHTML = arr.map(it => {
+        const name = it.type === 'user' ? prefs.userName : it.type === 'ai' ? prefs.aiName : '系统';
+        return `<div class="msg ${it.type}"><img class="avatar" src="${avatarOf(it.type)}"><div class="bubble"><div class="meta">${name} · ${it.ts}</div><div>${it.text.replace(/\n/g,'<br>')}</div></div></div>`;
+      }).join('');
+      $('logBox').scrollTop = $('logBox').scrollHeight;
+    }
+
+    function renderHistory() {
+      const today = dayKey();
+      const keys = Object.keys(logs).sort().reverse().filter(k => k !== today);
+      $('historyBox').innerHTML = keys.map(k => `<details><summary>${k}</summary>${(logs[k]||[]).map(it=>`<div class="tag">[${it.ts}] ${it.type}: ${it.text}</div>`).join('')}</details>`).join('') || '<div class="tag">暂无历史记录</div>';
+    }
+
+    function updateTaskHistory() {
+      const k = dayKey();
+      taskHistory[k] = tasks.map(t => ({ name:t.name, progress:t.progress }));
+      prune7Days(taskHistory);
+      save(LS.taskHistory, taskHistory);
+    }
+
+    function renderTasks() {
+      const filter = $('taskFilter').value;
+      const mapped = tasks.filter(t => {
+        if (filter==='all') return true;
+        if (filter==='done') return t.progress===100;
+        if (filter==='doing') return t.progress===50;
+        if (filter==='todo') return t.progress===0;
+      });
+      $('taskList').innerHTML = mapped.map(t => `<div class="task-item"><span>${t.name} <span class="tag">${t.progress}%</span></span><div class="row"><button onclick="cycleTask('${t.id}')">切换进度</button><button onclick="removeTask('${t.id}')">删除</button></div></div>`).join('') || '<div class="tag">无任务</div>';
+      const avg = tasks.length ? tasks.reduce((a,b)=>a+b.progress,0)/tasks.length : 0;
+      $('taskSummary').textContent = `总体进度：${Math.round(avg)}%`;
+      if (avg >= 80 && tasks.length) triggerEmojiRain();
+    }
+
+    window.cycleTask = function(id) {
+      tasks = tasks.map(t => t.id===id ? ({...t, progress: t.progress===0?50:t.progress===50?100:0}) : t);
+      save(LS.tasks, tasks); updateTaskHistory(); renderTasks();
+      appendLog('log', `任务进度更新`);
+    }
+    window.removeTask = function(id) { tasks = tasks.filter(t => t.id!==id); save(LS.tasks,tasks); updateTaskHistory(); renderTasks(); }
+
+    function triggerEmojiRain() {
+      const box = $('emojiRain');
+      box.innerHTML = '';
+      const emojis = ['🎉','✨','🥳','🌟'];
+      for (let i=0;i<35;i++) {
+        const sp = document.createElement('span');
+        sp.className='emoji';
+        sp.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+        sp.style.left = Math.random()*100+'vw';
+        sp.style.animationDelay = (Math.random()*0.8)+'s';
+        box.appendChild(sp);
+      }
+      setTimeout(()=> box.innerHTML='', 3200);
+    }
+
+    async function callAI(userContent) {
+      const apiKey = $('apiKey').value.trim();
+      const modelId = $('modelId').value.trim();
+      const sys = $('systemPrompt').value.trim() || '你是一个温柔、非评判性的学习陪伴助手。';
+      if (!apiKey || !modelId) {
+        appendLog('log', 'OpenRouter 设置不完整（缺少 API Key 或 Model ID）');
+        return null;
+      }
+      appendLog('user', userContent);
+      try {
+        const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': location.origin || 'http://localhost',
+            'X-Title': 'Body Double Study Companion'
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [
+              { role: 'system', content: sys },
+              { role: 'user', content: userContent }
+            ]
+          })
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const text = data?.choices?.[0]?.message?.content || '（AI 无回复）';
+        appendLog('ai', text);
+        return text;
+      } catch (e) {
+        appendLog('log', `AI 请求失败：${e.message}`);
+        return null;
+      }
+    }
+
+    function setState(mode) {
+      state.mode = mode;
+      state.startAt = mode === 'idle' ? null : Date.now();
+      state.reminded = false;
+      save(LS.state, state);
+      $('stateLabel').textContent = `当前：${mode==='study'?'学习':mode==='rest'?'休息':'空闲'}`;
+      $('toggleStudyRest').textContent = mode === 'study' ? '切换到休息' : '切换到学习';
+    }
+
+    let monitor = null;
+    function startMonitor() {
+      if (monitor) clearInterval(monitor);
+      monitor = setInterval(async () => {
+        if (state.mode==='study' && state.startAt && !state.reminded) {
+          const mins = (Date.now() - state.startAt) / 60000;
+          if (mins >= 25) {
+            state.reminded = true; save(LS.state, state);
+            const t = await callAI('用户已经学习了25分钟，请温和地提醒是否休息一下。');
+            $('modalText').textContent = t || '25分钟了，需要休息一下吗？';
+            $('gentleModal').style.display='flex';
+          }
+        }
+      }, 10000);
+    }
+
+    // init preferences & settings
+    $('apiKey').value = localStorage.getItem(LS.apiKey) || '';
+    $('modelId').value = localStorage.getItem(LS.modelId) || 'qwen/qwen-turbo';
+    $('systemPrompt').value = localStorage.getItem(LS.systemPrompt) || '你是一个温柔、非评判性的学习伙伴，专注于鼓励与陪伴。';
+    ['apiKey','modelId','systemPrompt'].forEach(id => $(id).addEventListener('input', () => localStorage.setItem(LS[id], $(id).value)));
+
+    $('userName').value = prefs.userName;
+    $('aiName').value = prefs.aiName;
+    $('userAvatar').value = prefs.userAvatar;
+    $('aiAvatar').value = prefs.aiAvatar;
+    function savePrefs(){
+      prefs.userName = $('userName').value || '你';
+      prefs.aiName = $('aiName').value || 'Companion';
+      prefs.userAvatar = $('userAvatar').value.trim();
+      prefs.aiAvatar = $('aiAvatar').value.trim();
+      save(LS.prefs, prefs);
+      renderLogs();
+    }
+    ['userName','aiName','userAvatar','aiAvatar'].forEach(id => $(id).addEventListener('input', savePrefs));
+
+    if (prefs.theme==='dark') document.body.classList.add('dark');
+    $('themeToggle').onclick = () => {
+      document.body.classList.toggle('dark');
+      prefs.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+      save(LS.prefs, prefs);
+    };
+
+    $('addTask').onclick = () => {
+      const name = $('newTask').value.trim();
+      if (!name) return;
+      if (tasks.length >= 6) return appendLog('log', '任务最多添加 6 个');
+      tasks.push({ id: crypto.randomUUID(), name, progress: 0 });
+      $('newTask').value = '';
+      save(LS.tasks, tasks); updateTaskHistory(); renderTasks(); appendLog('log', `添加任务：${name}`);
+    };
+    $('taskFilter').onchange = renderTasks;
+
+    $('toggleStudyRest').onclick = async () => {
+      if (state.mode !== 'study') {
+        setState('study');
+        appendLog('log', '进入学习状态');
+      } else {
+        setState('rest');
+        appendLog('log', '进入休息状态');
+        await callAI('用户刚完成一段专注，现在开始休息。请根据 System Prompt 提供简短、轻松的问候或自我肯定。');
+      }
+    };
+    $('endState').onclick = () => {
+      appendLog('log', `结束当前状态（${state.mode}）`);
+      setState('idle');
+    };
+
+    document.querySelectorAll('.quick').forEach(btn => btn.onclick = () => callAI(btn.textContent.trim()));
+    document.querySelectorAll('.distract').forEach(btn => btn.onclick = () => {
+      const lv = btn.dataset.level;
+      appendLog('log', `分心记录：${lv}`);
+      callAI(`我现在处于“${lv}”分心状态，请给我一个温和、非评判性的引导。`);
+    });
+
+    // 模块一：Draggable AI Avatar
+    (function initDraggableAvatar(){
+      const box = $('aiFloatAvatar');
+      const img = $('aiFloatAvatarImg');
+      const st = load(LS.avatarFloat, { left:null, top:null, width:120, height:120, url: img.src });
+      if (st.left!==null) { box.style.left = st.left + 'px'; box.style.top = st.top + 'px'; box.style.right='auto'; box.style.bottom='auto'; }
+      box.style.width = (st.width || 120) + 'px';
+      box.style.height = (st.height || 120) + 'px';
+      if (st.url) img.src = st.url;
+
+      let dragging = false, sx = 0, sy = 0, startLeft = 0, startTop = 0;
+      box.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const rect = box.getBoundingClientRect();
+        const nearResize = (rect.right - e.clientX < 18 && rect.bottom - e.clientY < 18);
+        if (nearResize) return;
+        dragging = true;
+        sx = e.clientX; sy = e.clientY;
+        startLeft = rect.left; startTop = rect.top;
+        e.preventDefault();
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const left = startLeft + (e.clientX - sx);
+        const top = startTop + (e.clientY - sy);
+        box.style.left = left + 'px'; box.style.top = top + 'px'; box.style.right='auto'; box.style.bottom='auto';
+      });
+      window.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        const rect = box.getBoundingClientRect();
+        save(LS.avatarFloat, { ...load(LS.avatarFloat, {}), left: rect.left, top: rect.top, width: rect.width, height: rect.height, url: img.src });
+      });
+
+      const ro = new ResizeObserver(() => {
+        const rect = box.getBoundingClientRect();
+        save(LS.avatarFloat, { ...load(LS.avatarFloat, {}), left: rect.left, top: rect.top, width: rect.width, height: rect.height, url: img.src });
+      });
+      ro.observe(box);
+
+      box.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const url = prompt('输入新的 GIF/图片 URL：', img.src);
+        if (!url) return;
+        img.src = url.trim();
+        const rect = box.getBoundingClientRect();
+        save(LS.avatarFloat, { ...load(LS.avatarFloat, {}), left: rect.left, top: rect.top, width: rect.width, height: rect.height, url: img.src });
+      });
+
+      box.addEventListener('click', async (e) => {
+        if (e.button !== 0) return;
+        appendLog('log', '你戳了戳 AI 助手');
+        await callAI('用户轻轻戳了你一下，请给一个简短、可爱的反应，可以是表情符号或一句话。');
+      });
+    })();
+
+    // 模块二：Vinyl Record Music Player UI
+    (function initVinyl(){
+      const rec = $('vinylRecord'), cover = $('vinylCover'), box = $('musicEmbedBox'), iframe = $('musicEmbed');
+      const defaultEmbed = {
+        spotify: 'https://open.spotify.com/embed/playlist/37i9dQZF1DX8NTLI2TtZa6',
+        netease: 'https://music.163.com/outchain/player?type=2&id=19723756&auto=0&height=90'
+      };
+      let v = load(LS.vinyl, { service: 'spotify', coverUrl: '', playing: false });
+      function applyVinyl() {
+        const logo = v.service === 'spotify' ? 'Spotify' : '网易云';
+        cover.textContent = logo;
+        cover.style.backgroundImage = v.coverUrl ? `url('${v.coverUrl}')` : '';
+        if (v.playing) {
+          rec.classList.add('playing');
+          box.style.display = 'block';
+          iframe.src = defaultEmbed[v.service];
+        } else {
+          rec.classList.remove('playing');
+          box.style.display = 'none';
+          iframe.src = '';
+        }
+      }
+      applyVinyl();
+
+      rec.addEventListener('click', () => {
+        v.playing = !v.playing;
+        save(LS.vinyl, v);
+        applyVinyl();
+        appendLog('log', v.playing ? '打开了音乐播放器' : '关闭了音乐播放器');
+      });
+
+      rec.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const chooseNetease = confirm('点击“确定”选择网易云，点击“取消”选择 Spotify');
+        v.service = chooseNetease ? 'netease' : 'spotify';
+        const inputCover = prompt('输入专辑封面 URL（可留空）：', v.coverUrl || '');
+        v.coverUrl = (inputCover || '').trim();
+        save(LS.vinyl, v);
+        applyVinyl();
+        appendLog('log', `音乐服务切换为：${v.service==='spotify'?'Spotify':'网易云音乐'}`);
+      });
+    })();
+
+    updateClock(); setInterval(updateClock, 1000);
+    renderLogs(); renderHistory(); renderTasks();
+    setState(state.mode || 'idle');
+    startMonitor();
+  </script>
+</body>
+</html>
