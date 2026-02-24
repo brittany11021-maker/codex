@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Body Double / Study Companion</title>
+  <style>
+    :root {
+      --bg: #f6f8fc;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #6366f1;
+      --user: #dbeafe;
+      --ai: #ecfeff;
+      --sys: #f3f4f6;
+      --z-base: 10;
+      --z-music: 130;
+      --z-gif: 140;
+    }
+    body.dark {
+      --bg: #0f172a;
+      --card: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #334155;
+      --primary: #818cf8;
+      --user: #1e3a8a;
+      --ai: #134e4a;
+      --sys: #374151;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: background .2s, color .2s;
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 14px;
+      position: relative;
+      z-index: var(--z-base);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 12px;
+      min-height: calc(100vh - 28px);
+    }
+    .left, .right { display: flex; flex-direction: column; gap: 12px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.06);
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    h1, h2, h3 { margin: 0; }
+    h1 { font-size: 22px; }
+    h2 { font-size: 14px; color: var(--muted); font-weight: 600; }
+    h3 { font-size: 16px; margin-bottom: 8px; }
+    .muted { color: var(--muted); font-size: 12px; }
+
+    input, textarea, button, select {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    input, textarea, select { width: 100%; }
+    textarea { min-height: 96px; resize: vertical; }
+    button { cursor: pointer; width: auto; }
+    .primary { border-color: transparent; background: var(--primary); color: #fff; }
+    details summary { cursor: pointer; font-weight: 700; }
+
+    .clock-module .time { font-size: 40px; line-height: 1.1; font-weight: 800; margin: 4px 0; }
+    .clock-module .date { font-size: 16px; color: var(--muted); }
+
+    .chat-log {
+      background: rgba(127,127,127,.06);
+      border-radius: 12px;
+      padding: 8px;
+      height: 48vh;
+      overflow: auto;
+    }
+    .msg { display: flex; gap: 8px; margin: 9px 0; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--line); }
+    .bubble { max-width: 85%; padding: 8px 10px; border-radius: 10px; }
+    .user .bubble { background: var(--user); }
+    .ai .bubble { background: var(--ai); }
+    .log .bubble { background: var(--sys); }
+    .meta { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+
+    .task-item { display:flex; justify-content:space-between; gap:8px; align-items:center; margin: 6px 0; }
+    .task-item .name { font-size: 14px; }
+
+    #emojiRain { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 125; }
+    .emoji { position: absolute; top: -36px; font-size: 26px; animation: drop 2.8s linear forwards; }
+    @keyframes drop { to { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
+
+    .modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      display: none; align-items: center; justify-content: center;
+      z-index: 200;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: min(560px, calc(100% - 24px));
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    /* 可拖动挂件基础 */
+    .floating-widget {
+      position: fixed;
+      resize: both;
+      overflow: hidden;
+      min-width: 90px;
+      min-height: 90px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 20px rgba(0,0,0,.18);
+      user-select: none;
+      background: var(--card);
+    }
+    .floating-widget .drag-hint {
+      position: absolute; left: 8px; top: 6px; font-size: 11px; color: #fff;
+      background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 999px;
+    }
+
+    #musicWidget { width: 180px; height: 180px; z-index: var(--z-music); right: 30px; bottom: 190px; }
+    #aiWidget { width: 130px; height: 130px; z-index: var(--z-gif); right: 30px; bottom: 30px; }
+
+    #aiWidget img { width: 100%; height: 100%; object-fit: cover; }
+
+    .vinyl {
+      width: 100%; height: 100%; border-radius: 50%; position: relative; cursor: move;
+      background: repeating-radial-gradient(circle at center, #070707 0 3px, #161616 3px 6px, #0c0c0c 6px 9px);
+    }
+    .vinyl.playing { animation: spin 4s linear infinite; }
+    .vinyl-cover {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 45%; height: 45%; border-radius: 50%;
+      background: #e5e7eb center/cover no-repeat;
+      display: flex; align-items:center; justify-content:center;
+      text-align: center; font-size: 11px; color: #111; padding: 6px;
+    }
+    @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+
+    #musicEmbedWrap {
+      position: fixed;
+      width: 340px;
+      max-width: calc(100vw - 20px);
+      z-index: var(--z-music);
+      display: none;
+    }
+    #musicEmbedWrap iframe { width: 100%; height: 120px; border: 0; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,.2); }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .chat-log { height: 42vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="layout">
+      <section class="left">
+        <div class="card clock-module">
+          <h1>陪伴时钟</h1>
+          <h2 id="clockWeek">周一</h2>
+          <div class="time" id="clockTime">00:00</div>
+          <div class="date" id="clockDate">24/01/01</div>
+        </div>
+
+        <div class="card">
+          <h3>个人与主题</h3>
+          <div class="row">
+            <button id="themeBtn">切换白天/黑夜</button>
+          </div>
+          <div style="margin-top:8px"></div>
+          <label class="muted">用户名</label><input id="userName" placeholder="你" />
+          <label class="muted">AI 名</label><input id="aiName" placeholder="Companion" />
+          <label class="muted">用户头像 URL</label><input id="userAvatar" placeholder="https://..." />
+          <label class="muted">AI 头像 URL</label><input id="aiAvatar" placeholder="https://..." />
+        </div>
+
+        <div class="card">
+          <details>
+            <summary>设置区域（OpenRouter）</summary>
+            <div style="margin-top:8px"></div>
+            <label class="muted">OpenRouter API Key</label>
+            <input id="apiKey" type="password" placeholder="sk-or-..." />
+            <label class="muted">Model ID</label>
+            <input id="modelId" type="text" placeholder="qwen/qwen-turbo" />
+            <label class="muted">Custom System Prompt</label>
+            <textarea id="systemPrompt" placeholder="你是一个温柔、非评判性的学习伙伴..."></textarea>
+          </details>
+        </div>
+
+        <div class="card">
+          <h3>任务管理（最多 6 个）</h3>
+          <div class="row">
+            <input id="newTask" placeholder="输入任务名称" style="flex:1" />
+            <button id="addTask">添加</button>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <select id="taskFilter" style="max-width:150px;">
+              <option value="all">全部</option>
+              <option value="done">已完成</option>
+              <option value="doing">进行中</option>
+              <option value="todo">未完成</option>
+            </select>
+            <div class="muted" id="taskSummary">总体进度：0%</div>
+          </div>
+          <div id="taskList" style="margin-top:8px;"></div>
+        </div>
+      </section>
+
+      <section class="right">
+        <div class="card">
+          <h3>Action Log & Chat</h3>
+          <div id="logBox" class="chat-log"></div>
+          <details style="margin-top:10px;">
+            <summary>过去记录（按 05:00 分日，最多 7 天）</summary>
+            <div id="historyBox" style="margin-top:8px;"></div>
+          </details>
+        </div>
+
+        <div class="card">
+          <h3>极简陪伴控制器</h3>
+          <div class="row">
+            <button id="toggleStudy" class="primary">切换到学习</button>
+            <button id="endState">结束当前状态</button>
+            <span class="muted" id="stateText">当前：空闲</span>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button class="quick">早上好</button>
+            <button class="quick">下午好</button>
+            <button class="quick">晚上好</button>
+            <button class="quick">今天结束了</button>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button class="distract" data-level="轻微走神">轻微走神</button>
+            <button class="distract" data-level="尚能控制">尚能控制</button>
+            <button class="distract" data-level="完全偏离">完全偏离</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="emojiRain"></div>
+
+  <div id="gentleModal" class="modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom:8px">温和提醒</h3>
+      <div id="gentleText"></div>
+      <div class="row" style="margin-top:10px"><button onclick="closeModal('gentleModal')">好的</button></div>
+    </div>
+  </div>
+
+  <div id="aiModal" class="modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom:8px">AI 头像设置</h3>
+      <label class="muted">GIF / 图片 URL</label>
+      <input id="aiGifInput" placeholder="https://..." />
+      <div class="row" style="margin-top:10px;">
+        <button id="saveAiGif">保存图片</button>
+        <button id="pokeAi">戳一戳 AI</button>
+        <button onclick="closeModal('aiModal')">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="musicModal" class="modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom:8px">音乐挂件设置</h3>
+      <label class="muted">服务商</label>
+      <select id="musicService" style="max-width:170px;">
+        <option value="spotify">Spotify</option>
+        <option value="netease">网易云音乐</option>
+      </select>
+      <label class="muted" style="margin-top:8px; display:block;">封面 URL（可选）</label>
+      <input id="musicCoverInput" placeholder="https://..." />
+      <div class="row" style="margin-top:10px;">
+        <button id="saveMusicSettings">保存设置</button>
+        <button id="toggleMusicPlay" class="primary">播放/暂停</button>
+        <button onclick="closeModal('musicModal')">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="musicWidget" class="floating-widget" title="左键打开音乐设置">
+    <div class="vinyl" id="vinylDisc">
+      <span class="drag-hint">拖动</span>
+      <div class="vinyl-cover" id="vinylCover">Spotify</div>
+    </div>
+  </div>
+
+  <div id="musicEmbedWrap"><iframe id="musicEmbed" allow="autoplay; clipboard-write; encrypted-media"></iframe></div>
+
+  <div id="aiWidget" class="floating-widget" title="左键打开 AI 头像设置">
+    <span class="drag-hint">拖动</span>
+    <img id="aiWidgetImg" src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNjJxYWUxMnd2ZXkydXQ3eGhlZW0wa2RsNmhtYzN5d2d6NWQ4anBpcCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3oriO0OEd9QIDdllqo/giphy.gif" alt="AI avatar" />
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const LS = {
+      apiKey: 'bd_apiKey', modelId: 'bd_modelId', systemPrompt: 'bd_systemPrompt',
+      prefs: 'bd_prefs', logs: 'bd_logs', tasks: 'bd_tasks', taskHistory: 'bd_taskHistory', state: 'bd_state',
+      aiWidget: 'bd_aiWidget', musicWidget: 'bd_musicWidget', vinyl: 'bd_vinyl'
+    };
+
+    const defaultPrefs = { userName:'你', aiName:'Companion', userAvatar:'', aiAvatar:'', theme:'light' };
+    const positiveEmoji30 = ['🎉','✨','🥳','🌟','💪','🚀','🌈','😄','😊','👏','🙌','💖','🧠','📚','🎯','🍀','🫶','🔥','☀️','🌻','🧩','🏆','🎈','🧡','💫','🌸','😌','🕊️','🧘','👍'];
+
+    function save(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+    function load(k,f){ try { const v=JSON.parse(localStorage.getItem(k)); return v ?? f; } catch { return f; } }
+    function p2(n){ return String(n).padStart(2,'0'); }
+    function nowTs(){ const d=new Date(); return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; }
+    function dayKey(date=new Date()){ return new Date(date.getTime() - 5*3600*1000).toISOString().slice(0,10); }
+    function prune7(obj){ const ks=Object.keys(obj).sort(); while(ks.length>7) delete obj[ks.shift()]; }
+
+    const prefs = load(LS.prefs, defaultPrefs);
+    const logs = load(LS.logs, {});
+    let tasks = load(LS.tasks, []);
+    let taskHistory = load(LS.taskHistory, {});
+    let state = load(LS.state, {mode:'idle', startAt:null, reminded:false});
+    let vinyl = load(LS.vinyl, {service:'spotify', coverUrl:'', playing:false});
+
+    function openModal(id){ $(id).classList.add('open'); }
+    function closeModal(id){ $(id).classList.remove('open'); }
+    window.closeModal = closeModal;
+
+    function updateClock(){
+      const d = new Date();
+      const week = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+      $('clockWeek').textContent = week;
+      $('clockTime').textContent = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+      $('clockDate').textContent = `${String(d.getFullYear()).slice(2)}/${p2(d.getMonth()+1)}/${p2(d.getDate())}`;
+    }
+
+    function avatarOf(type){
+      if(type==='user') return prefs.userAvatar || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="20" fill="%2373a5ff"/></svg>';
+      if(type==='ai') return prefs.aiAvatar || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="20" fill="%238be9c7"/></svg>';
+      return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="20" fill="%23c4c4c4"/></svg>';
+    }
+
+    function appendLog(type, text){
+      const key = dayKey();
+      if(!logs[key]) logs[key]=[];
+      logs[key].push({type, text, ts: nowTs(), at: Date.now()});
+      prune7(logs); save(LS.logs, logs);
+      renderLogs(); renderHistory();
+    }
+
+    function renderLogs(){
+      const arr = logs[dayKey()] || [];
+      $('logBox').innerHTML = arr.map(item => {
+        const name = item.type==='user' ? prefs.userName : item.type==='ai' ? prefs.aiName : '系统';
+        return `<div class="msg ${item.type}"><img class="avatar" src="${avatarOf(item.type)}"><div class="bubble"><div class="meta">${name} · ${item.ts}</div><div>${item.text.replace(/\n/g,'<br>')}</div></div></div>`;
+      }).join('') || '<div class="muted">今天还没有记录，慢慢开始就好。</div>';
+      $('logBox').scrollTop = $('logBox').scrollHeight;
+    }
+
+    function renderHistory(){
+      const today = dayKey();
+      const keys = Object.keys(logs).sort().reverse().filter(k => k!==today);
+      $('historyBox').innerHTML = keys.map(k => `<details><summary>${k}</summary>${(logs[k]||[]).map(i=>`<div class="muted">[${i.ts}] ${i.type}: ${i.text}</div>`).join('')}</details>`).join('') || '<div class="muted">暂无历史记录</div>';
+    }
+
+    async function callAI(userContent, { hiddenUserLog = false } = {}) {
+      const apiKey = $('apiKey').value.trim();
+      const modelId = $('modelId').value.trim();
+      const sys = $('systemPrompt').value.trim() || '你是一个温柔、非评判性的学习伙伴。';
+      if (!apiKey || !modelId) {
+        appendLog('log', 'OpenRouter 设置不完整（缺少 API Key 或 Model ID）');
+        return null;
+      }
+      if (!hiddenUserLog) appendLog('user', userContent);
+      try {
+        const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': location.origin || 'http://localhost',
+            'X-Title': 'Body Double Study Companion'
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [
+              { role: 'system', content: sys },
+              { role: 'user', content: userContent }
+            ]
+          })
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const text = data?.choices?.[0]?.message?.content || '（AI 无回复）';
+        appendLog('ai', text);
+        return text;
+      } catch (e) {
+        appendLog('log', `AI 请求失败：${e.message}`);
+        return null;
+      }
+    }
+
+    function updateTaskHistory(){
+      const k = dayKey();
+      taskHistory[k] = tasks.map(t => ({name:t.name, progress:t.progress}));
+      prune7(taskHistory); save(LS.taskHistory, taskHistory);
+    }
+
+    function triggerEmojiRain(){
+      const box = $('emojiRain');
+      box.innerHTML = '';
+      const daily = dayKey();
+      const seed = daily.split('-').join('');
+      let n = 0; for (const ch of seed) n += ch.charCodeAt(0);
+      const emoji = positiveEmoji30[n % positiveEmoji30.length];
+      for(let i=0;i<36;i++){
+        const el = document.createElement('span');
+        el.className = 'emoji'; el.textContent = emoji;
+        el.style.left = (Math.random()*100)+'vw';
+        el.style.animationDelay = (Math.random()*1.2)+'s';
+        box.appendChild(el);
+      }
+      setTimeout(()=> box.innerHTML='', 3400);
+    }
+
+    function renderTasks(){
+      const filter = $('taskFilter').value;
+      const list = tasks.filter(t => {
+        if(filter==='all') return true;
+        if(filter==='done') return t.progress===100;
+        if(filter==='doing') return t.progress===50;
+        if(filter==='todo') return t.progress===0;
+      });
+      $('taskList').innerHTML = list.map(t => `<div class="task-item"><span class="name">${t.name} <span class="muted">${t.progress}%</span></span><span class="row"><button onclick="cycleTask('${t.id}')">切换进度</button><button onclick="removeTask('${t.id}')">删</button></span></div>`).join('') || '<div class="muted">暂无任务</div>';
+      const avg = tasks.length ? Math.round(tasks.reduce((a,b)=>a+b.progress,0)/tasks.length) : 0;
+      $('taskSummary').textContent = `总体进度：${avg}%`;
+      if(avg>=80 && tasks.length) triggerEmojiRain();
+    }
+    window.cycleTask = function(id){
+      tasks = tasks.map(t => t.id===id ? ({...t, progress: t.progress===0?50:t.progress===50?100:0}) : t);
+      save(LS.tasks,tasks); updateTaskHistory(); renderTasks(); appendLog('log', '任务进度更新');
+    }
+    window.removeTask = function(id){ tasks = tasks.filter(t=>t.id!==id); save(LS.tasks,tasks); updateTaskHistory(); renderTasks(); };
+
+    function setState(mode){
+      state.mode = mode;
+      state.startAt = mode==='idle' ? null : Date.now();
+      state.reminded = false;
+      save(LS.state, state);
+      $('stateText').textContent = `当前：${mode==='study'?'学习':mode==='rest'?'休息':'空闲'}`;
+      $('toggleStudy').textContent = mode==='study' ? '切换到休息' : '切换到学习';
+    }
+
+    let monitor;
+    function startMonitor(){
+      clearInterval(monitor);
+      monitor = setInterval(async ()=>{
+        if(state.mode==='study' && state.startAt && !state.reminded){
+          if((Date.now()-state.startAt)/60000 >= 25){
+            state.reminded = true; save(LS.state,state);
+            const t = await callAI('用户已经学习了25分钟，请温和地提醒是否休息一下。', { hiddenUserLog: true });
+            $('gentleText').textContent = t || '25分钟了，需要休息一下吗？';
+            openModal('gentleModal');
+          }
+        }
+      }, 10000);
+    }
+
+    function bindSettingPersistence(){
+      $('apiKey').value = localStorage.getItem(LS.apiKey) || '';
+      $('modelId').value = localStorage.getItem(LS.modelId) || 'qwen/qwen-turbo';
+      $('systemPrompt').value = localStorage.getItem(LS.systemPrompt) || '你是一个温柔、非评判性的学习伙伴，专注于鼓励与陪伴。';
+      ['apiKey','modelId','systemPrompt'].forEach(id => $(id).addEventListener('input', ()=> localStorage.setItem(LS[id], $(id).value)));
+    }
+
+    function initPrefs(){
+      $('userName').value = prefs.userName; $('aiName').value = prefs.aiName;
+      $('userAvatar').value = prefs.userAvatar; $('aiAvatar').value = prefs.aiAvatar;
+      if(prefs.theme==='dark') document.body.classList.add('dark');
+
+      function savePrefs(){
+        prefs.userName = $('userName').value || '你';
+        prefs.aiName = $('aiName').value || 'Companion';
+        prefs.userAvatar = $('userAvatar').value.trim();
+        prefs.aiAvatar = $('aiAvatar').value.trim();
+        save(LS.prefs,prefs); renderLogs();
+      }
+      ['userName','aiName','userAvatar','aiAvatar'].forEach(id => $(id).addEventListener('input', savePrefs));
+
+      $('themeBtn').addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        prefs.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+        save(LS.prefs,prefs);
+      });
+    }
+
+    function enableDragResize(widgetId, lsKey){
+      const el = $(widgetId);
+      const st = load(lsKey, null);
+      if(st){
+        if(typeof st.left === 'number') { el.style.left = st.left + 'px'; el.style.right = 'auto'; }
+        if(typeof st.top === 'number') { el.style.top = st.top + 'px'; el.style.bottom = 'auto'; }
+        if(typeof st.width === 'number') el.style.width = st.width + 'px';
+        if(typeof st.height === 'number') el.style.height = st.height + 'px';
+      }
+
+      let dragging = false, sx=0, sy=0, sl=0, stp=0;
+      el.addEventListener('mousedown', (e) => {
+        if(e.button!==0) return;
+        const r = el.getBoundingClientRect();
+        const resizeZone = (r.right-e.clientX<18 && r.bottom-e.clientY<18);
+        if(resizeZone) return;
+        dragging = true; sx=e.clientX; sy=e.clientY; sl=r.left; stp=r.top; e.preventDefault();
+      });
+      window.addEventListener('mousemove', (e)=>{
+        if(!dragging) return;
+        el.style.left = (sl + e.clientX - sx)+'px';
+        el.style.top = (stp + e.clientY - sy)+'px';
+        el.style.right='auto'; el.style.bottom='auto';
+      });
+      window.addEventListener('mouseup', ()=>{
+        if(!dragging) return;
+        dragging = false;
+        const r = el.getBoundingClientRect();
+        save(lsKey,{...load(lsKey, {}), left:r.left, top:r.top, width:r.width, height:r.height});
+        if(widgetId==='musicWidget') syncEmbedPos();
+      });
+      const ro = new ResizeObserver(()=>{
+        const r = el.getBoundingClientRect();
+        save(lsKey,{...load(lsKey, {}), left:r.left, top:r.top, width:r.width, height:r.height});
+        if(widgetId==='musicWidget') syncEmbedPos();
+      });
+      ro.observe(el);
+
+      el.addEventListener('contextmenu', (e)=> e.preventDefault());
+    }
+
+    const embedMap = {
+      spotify: 'https://open.spotify.com/embed/playlist/37i9dQZF1DX8NTLI2TtZa6',
+      netease: 'https://music.163.com/outchain/player?type=2&id=19723756&auto=0&height=90'
+    };
+
+    function syncEmbedPos(){
+      const w = $('musicWidget').getBoundingClientRect();
+      $('musicEmbedWrap').style.left = Math.max(8, w.left - 350) + 'px';
+      $('musicEmbedWrap').style.top = Math.max(8, w.top) + 'px';
+    }
+    function renderVinyl(){
+      $('vinylCover').textContent = vinyl.service === 'spotify' ? 'Spotify' : '网易云';
+      $('vinylCover').style.backgroundImage = vinyl.coverUrl ? `url('${vinyl.coverUrl}')` : '';
+      if(vinyl.playing){
+        $('vinylDisc').classList.add('playing');
+        $('musicEmbed').src = embedMap[vinyl.service];
+        $('musicEmbedWrap').style.display = 'block';
+      }else{
+        $('vinylDisc').classList.remove('playing');
+        $('musicEmbedWrap').style.display = 'none';
+        $('musicEmbed').src = '';
+      }
+      syncEmbedPos();
+    }
+
+    function bindMainActions(){
+      $('addTask').onclick = () => {
+        const name = $('newTask').value.trim();
+        if(!name) return;
+        if(tasks.length >= 6) return appendLog('log','任务最多添加 6 个');
+        tasks.push({id: crypto.randomUUID(), name, progress:0});
+        $('newTask').value='';
+        save(LS.tasks,tasks); updateTaskHistory(); renderTasks(); appendLog('log', `添加任务：${name}`);
+      };
+      $('taskFilter').onchange = renderTasks;
+
+      $('toggleStudy').onclick = async () => {
+        if(state.mode !== 'study'){
+          setState('study'); appendLog('log','进入学习状态');
+        } else {
+          setState('rest'); appendLog('log','进入休息状态');
+          await callAI('用户刚完成一段专注，现在开始休息。请根据 System Prompt 的设定，提供一段简短、轻松的问候或自我肯定。', { hiddenUserLog: true });
+        }
+      };
+      $('endState').onclick = () => { appendLog('log', `结束当前状态（${state.mode}）`); setState('idle'); };
+
+      document.querySelectorAll('.quick').forEach(b=> b.onclick = ()=> callAI(b.textContent.trim()));
+      document.querySelectorAll('.distract').forEach(b=> b.onclick = ()=> {
+        const lv = b.dataset.level;
+        appendLog('log', `分心记录：${lv}`);
+        callAI(`我现在处于“${lv}”分心状态，请给我一个温和、非评判性的引导。`, { hiddenUserLog: true });
+      });
+
+      $('aiWidget').addEventListener('click', () => {
+        $('aiGifInput').value = $('aiWidgetImg').src;
+        openModal('aiModal');
+      });
+      $('saveAiGif').onclick = () => {
+        const u = $('aiGifInput').value.trim();
+        if(!u) return;
+        $('aiWidgetImg').src = u;
+        const keep = load(LS.aiWidget, {}); keep.url = u; save(LS.aiWidget, keep);
+        appendLog('log', '已更新 AI 头像/GIF');
+      };
+      $('pokeAi').onclick = async () => {
+        appendLog('log', '你戳了戳 AI 助手');
+        await callAI('用户轻轻戳了你一下，请给一个简短、可爱的反应，可以是表情符号或一句话。', { hiddenUserLog: true });
+      };
+
+      $('musicWidget').addEventListener('click', () => {
+        $('musicService').value = vinyl.service;
+        $('musicCoverInput').value = vinyl.coverUrl;
+        openModal('musicModal');
+      });
+      $('saveMusicSettings').onclick = () => {
+        vinyl.service = $('musicService').value;
+        vinyl.coverUrl = $('musicCoverInput').value.trim();
+        save(LS.vinyl, vinyl);
+        renderVinyl();
+        appendLog('log', `音乐设置已更新（${vinyl.service==='spotify'?'Spotify':'网易云音乐'}）`);
+      };
+      $('toggleMusicPlay').onclick = () => {
+        vinyl.playing = !vinyl.playing;
+        save(LS.vinyl, vinyl);
+        renderVinyl();
+        appendLog('log', vinyl.playing ? '打开了音乐播放器' : '关闭了音乐播放器');
+      };
+    }
+
+    function initWidgets(){
+      // AI widget includes src persistence
+      const aiState = load(LS.aiWidget, {});
+      if(aiState.url) $('aiWidgetImg').src = aiState.url;
+
+      enableDragResize('musicWidget', LS.musicWidget);
+      enableDragResize('aiWidget', LS.aiWidget);
+      renderVinyl();
+    }
+
+    bindSettingPersistence();
+    initPrefs();
+    bindMainActions();
+    initWidgets();
+    updateClock(); setInterval(updateClock, 1000);
+    renderLogs(); renderHistory(); renderTasks(); setState(state.mode || 'idle'); startMonitor();
+  </script>
+</body>
+</html>
